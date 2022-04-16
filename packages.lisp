@@ -1,5 +1,3 @@
-(sb-ext:assert-version->= 2 1 9)
-
 (defpackage :vector-clock
   (:use :cl)
   (:export
