@@ -271,6 +271,7 @@
 						:share-cache-interval-in-sec 60
 						:remove-obsolete-keys-interval 60)))	
 	(loop for key from 0 below n do
+	  ;; (sleep 0.01) ;; prevents socket buffer overflow if UDP sockets are tested
 	  (newhash-shared key h-table-obj-1 (write-to-string key))) ;; ex.: key = 5, value = "5"
 	(sleep 1)
 	(destroy-shared-htable h-table-obj-1 0)
