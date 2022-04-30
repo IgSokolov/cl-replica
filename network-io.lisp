@@ -1,4 +1,4 @@
-(in-package :network-io)
+(in-package :cl-replica.network-io)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (declaim (optimize (debug 3)))

@@ -1,4 +1,4 @@
-(in-package :vector-clock)
+(in-package :cl-replica.vector-clock)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (declaim (optimize (debug 3))))

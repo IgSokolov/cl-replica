@@ -1,4 +1,4 @@
-(in-package :hashtable-ops)
+(in-package :cl-replica.hashtable-ops)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (declaim (optimize (debug 3))))

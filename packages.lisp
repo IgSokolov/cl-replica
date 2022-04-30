@@ -1,4 +1,4 @@
-(defpackage :vector-clock
+(defpackage :cl-replica.vector-clock
   (:use :cl)
   (:export
    
@@ -12,9 +12,9 @@
    :compare-vector-lengths
    :timestamp<=))
 
-(defpackage :network-io
+(defpackage :cl-replica.network-io
   (:use :cl)
-  (:import-from :vector-clock :init-timestamp)
+  (:import-from :cl-replica.vector-clock :init-timestamp)
   (:export
    
    ;; functions
@@ -44,8 +44,8 @@
    :network-settings-cache-being-processed
    :send-echo))   
 
-(defpackage :hashtable-ops
-  (:use :cl :vector-clock :network-io)
+(defpackage :cl-replica.hashtable-ops
+  (:use :cl :cl-replica.vector-clock :cl-replica.network-io)
   (:export
    
    :make-shared-hash-table
@@ -76,7 +76,7 @@
    :cache-being-shared))
 
 (defpackage :cl-replica
-  (:use :cl :hashtable-ops :vector-clock :network-io)
+  (:use :cl :cl-replica.hashtable-ops :cl-replica.vector-clock :cl-replica.network-io)
   (:export
    
    :share-hash-table

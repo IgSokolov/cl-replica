@@ -1,7 +1,7 @@
-(defpackage :u-tests
-  (:use :cl :cl-replica :vector-clock :hashtable-ops :network-io))
+(defpackage :cl-replica.u-tests
+  (:use :cl :cl-replica :cl-replica.vector-clock :cl-replica.hashtable-ops :cl-replica.network-io))
 
-(in-package :u-tests)
+(in-package :cl-replica.u-tests)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (declaim (optimize (debug 3))))
