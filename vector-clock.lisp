@@ -26,7 +26,9 @@
          :reader ts-1)
    (ts-2 :initarg :ts-2
          :reader ts-2))
-  (:report (lambda (condition stream) (format stream "Data races detected in vector clocks:~%Vector 1 = ~a~%Vector 2 = ~a~%" (ts-1 condition) (ts-2 condition)))))
+  (:report (lambda (condition stream)
+	     (format stream "Data races detected in vector clocks:~%Vector 1 = ~a~%Vector 2 = ~a~%"
+		     (ts-1 condition) (ts-2 condition)))))
 
 (defun vec-length (vec)
   "Calculates the length of the vector"
