@@ -51,20 +51,28 @@
   "Parses tcp://192.168.1.1:5550 to (values :tcp #(192 168 1 1) 5550)"
   (flet ((delimiterp (c) (or (char= c #\/) (char= c #\.) (char= c #\:))))        
     (let ((addr-as-list (split-string-by-delimiter addr #'delimiterp)))
-      (unless
-	  (= 6 (list-length addr-as-list))	   
-	(error 'network-address-parse-error :address addr))
-      (let ((protocol-str (car addr-as-list))
-	    (ip-str (subseq addr-as-list 1 5))
-	    (port-str (car (last addr-as-list))))
-	(handler-case
-	    (values (as-keyword protocol-str)
-		    (make-array 4 :initial-contents (mapcar #'parse-integer ip-str))
-		    (parse-integer port-str))
-	  (SB-INT:SIMPLE-PARSE-ERROR (c)	    
-	    (error 'network-address-parse-error :error-msg c :address addr))	    
-	  (TYPE-ERROR (c)
-	    (error 'network-address-parse-error :error-msg c :address addr)))))))
+      (restart-case
+	  (progn
+	    (unless
+		(= 6 (list-length addr-as-list))	   
+	      (error 'network-address-parse-error :address addr))
+	    (let ((protocol-str (car addr-as-list))
+		  (ip-str (subseq addr-as-list 1 5))
+		  (port-str (car (last addr-as-list))))
+	      (handler-case
+		  (values (as-keyword protocol-str)
+			  (make-array 4 :initial-contents (mapcar #'parse-integer ip-str))
+			  (parse-integer port-str))
+		(SB-INT:SIMPLE-PARSE-ERROR (c)	    
+		  (error 'network-address-parse-error :error-msg c :address addr))	    
+		(TYPE-ERROR (c)
+		  (error 'network-address-parse-error :error-msg c :address addr)))))
+	(choose-another-address (new-address)
+	  :report "Please choose another address (ex. tcp://127.0.0.1:5550)"
+	  :interactive (lambda ()
+			 (format t "Enter a new address: ")
+			 (list (read)))
+	  (parse-network-address new-address))))))
 			    
 ;;;; serialize/deserialize
 (defun obj-to-str (obj)
