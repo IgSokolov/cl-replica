@@ -24,7 +24,7 @@ All that is wrapped in an [API](./api.lisp) which is very close to the [standard
 Additionally, the function _destroy-shared-htable (h-table-obj wait-after-socket-is-closed)_ is provided which stops all network and data threads inside a _h-table-obj_ and returns a normal hash-table. 
 
 ## How to build
-Configure ASDF to find `cl-replica` and execute:
+Use [Quicklisp](https://www.quicklisp.org/beta/) or configure ASDF to find `cl-replica` and execute:
 ```
 (require "asdf")
 (asdf:load-system "cl-replica")
