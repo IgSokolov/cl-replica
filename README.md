@@ -70,7 +70,8 @@ See the [API](./api.lisp) description and [unit-tests](./unit-tests.lisp) for nu
 `cl-replica` permits only commutative operations on hash-tables, i.e. serializabilty is not guaranteed. For the operations, which introduce dependencies among values, transactions are an obvious choice. Additionally, a lazy nature of data dissemination makes `cl-replica` inappropriate for an application with real-time requirements.
 
 ## Tested
-SBCL 2.1.9
+- [x] Red Hat 4.8.5-44 - SBCL 2.1.9
+- [x] FreeBSD 13.1 - SBCL 2.2.7
 
 ## Contribution:
 Any kind of contributions are highly appreciated. Two obvious ways to improve the library are (1) to make it portable across different Lisp compilers and (2) to test it in a real distributed environment. Please, take into account the following guidilines:
