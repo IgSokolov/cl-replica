@@ -76,9 +76,9 @@
       (sleep 1)
       (inspect-h-table (h-table-obj-1)
 	(inspect-h-table (h-table-obj-2 1)
-	 ;; (maphash #'(lambda (key value) (format t "~a->~a~%" key value)) table))))))    
+	  ;; (maphash #'(lambda (key value) (format t "~a->~a~%" key value)) table))))))    
 	  (assert (string= "00" (gethash-shared 0 h-table-obj-2))))))))
-	
+
 (defun remhash-shared-test (addr-1 addr-2)
   "Check sharing a value when it is deleted locally"
   (format t "Running remhash-shared-test~%")
@@ -90,19 +90,19 @@
 					      ;; share death-certificate faster than ..
 					      :share-cache-interval-in-sec 1
 					      ;; .. the value is removed 
-					      :remove-obsolete-keys-interval 5)) 
+					      :remove-obsolete-keys-interval 10)) 
 	  (h-table-obj-2 (share-hash-table h2 :this-node addr-2
 					      :other-nodes (list addr-1)
 					      :cache-length 3					      
 					      :share-cache-interval-in-sec 1
-					      :remove-obsolete-keys-interval 5)))
+					      :remove-obsolete-keys-interval 10)))
       (newhash-shared 0 h-table-obj-1 "00")
       (sleep 1) ;; wait for send-update
       (inspect-h-table (h-table-obj-1)
-	(inspect-h-table (h-table-obj-2 1)
+	(inspect-h-table (h-table-obj-2 1)	  
 	  (assert (string= "00" (gethash-shared 0 h-table-obj-2))) ;; data were delivered	  
-	  (remhash-shared 0 h-table-obj-1) ;; delete locally
-	  (assert (not (gethash-shared 0 h-table-obj-1))) ;; key was really deleted
+	  (remhash-shared 0 h-table-obj-1) ;; delete locally	  
+	  (assert (not (gethash-shared 0 h-table-obj-1))) ;; key was really deleted	  
 	  (assert (gethash-shared 0 h-table-obj-2)))))))  ;; key was deleted on the remote peer
 
 (defun remove-obsolete-keys-test (addr-1 addr-2)
@@ -113,12 +113,12 @@
     (let ((h-table-obj-1 (share-hash-table h1 :this-node addr-1
 					      :other-nodes (list addr-2)
 					      :cache-length 3					      
-					      :share-cache-interval-in-sec 5
+					      :share-cache-interval-in-sec 10
 					      :remove-obsolete-keys-interval 1))
 	  (h-table-obj-2 (share-hash-table h2 :this-node addr-2
 					      :other-nodes (list addr-1)
 					      :cache-length 3					      
-					      :share-cache-interval-in-sec 5
+					      :share-cache-interval-in-sec 10
 					      :remove-obsolete-keys-interval 1)))
       (newhash-shared 0 h-table-obj-1 "00")      
       (remhash-shared 0 h-table-obj-1)

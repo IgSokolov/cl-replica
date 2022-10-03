@@ -95,7 +95,7 @@
 	NIL)))
 
 (defun clean-shared-hash-table (sht)
-  "Deletes all keys which have deatch-certificates (del-p flag)"
+  "Deletes all keys which have death-certificates (del-p flag)"
   (sb-thread:with-mutex ((shared-hash-table-lock sht))
     (let ((obsolete-keys))
       (maphash #'(lambda (key value) (when (eq t (aref value 1))
@@ -181,7 +181,7 @@
 	       (shared-hash-table-last-keys-modified sht))
 	 (let ((cache))
 	   ;; sync timestamps in hash-table with last-keys-modified
-	   (loop for (key . timestamp) in (shared-hash-table-last-keys-modified sht) do
+	   (loop for (key . timestamp) in (shared-hash-table-last-keys-modified sht) do	   
 	     (setf (aref (gethash key (shared-hash-table-table sht)) 2) timestamp)
 	     ;; build extended form
 	     (let ((gvalue (gethash key (shared-hash-table-table sht))))
