@@ -184,7 +184,7 @@ https://stackoverflow.com/questions/71082880/common-lisp-structures-with-dynamic
 (defun destroy-shared-htable (h-table-obj wait-after-socket-is-closed)
   "API to stop all threads inside the shared hash table.
    A simple hash-table is returned."
-  (destructuring-bind (sht settings) h-table-obj h-table-obj
+  (destructuring-bind (sht settings) h-table-obj
     (unless (shared-hash-table-destroyed-p sht) ;; allows calling this function safely on a destroyed shared-h-table
       (setf (shared-hash-table-destroyed-p sht) t)
       (setf (network-settings-stop-hash-table-cleaning settings) t) ;; stop db cleaning
