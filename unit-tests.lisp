@@ -55,6 +55,11 @@
 (defun mutex-is-free-p (sht)
   (not (sb-thread:mutex-value (shared-hash-table-lock sht))))
 
+
+(defun make-h-table-offline (h-table-obj)
+  (cl-replica::dbind-with-mutex (sht settings) h-table-obj
+    (cl-replica::stop-all-network-threads settings)))
+  
 ;; Network IO tests
 
 (defun newhash-shared-test (addr-1 addr-2)
@@ -145,7 +150,7 @@
 					      :other-nodes (list addr-1)
 					      :cache-length 100
 					      :share-cache-interval-in-sec 0.1)))
-      (sleep 1) ;; wait until cache-sharing does the job      
+      (sleep 1.5) ;; wait until cache-sharing does the job      
       (inspect-h-table (h-table-obj-1)
 	(inspect-h-table (h-table-obj-2)
 	  ;; (maphash #'(lambda (key value) (format t "~a->~a~%" key value)) table)	  	  
@@ -161,12 +166,10 @@
     (setf (gethash 1 h1) "01")
     (setf (gethash 2 h1) "02")
     (let ((h-table-obj-1 (share-hash-table h1 :this-node addr-1
-					      :other-nodes (list addr-1)
-					      ;; make the hash-table offline
-					      :stop-sync t
-					      :stop-udp-server t
-					      :stop-tcp-server t
-					      :stop-tcp-client t)))
+					      :other-nodes (list addr-1))))
+      ;; make the hash-table offline
+      (make-h-table-offline h-table-obj-1)
+      ;; try with dbind-with-mutex
       ;; ensure that the values present
       (assert (string= "00" (gethash-shared 0 h-table-obj-1)))
       (assert (string= "01" (gethash-shared 1 h-table-obj-1)))
@@ -188,12 +191,9 @@
     (setf (gethash 1 h1) "01")
     (setf (gethash 2 h1) "02")
     (let ((h-table-obj-1 (share-hash-table h1 :this-node addr-1
-					      :other-nodes (list addr-1)
-					      ;; make the hash-table offline
-					      :stop-sync t
-					      :stop-udp-server t
-					      :stop-tcp-server t
-					      :stop-tcp-client t)))
+					      :other-nodes (list addr-1))))
+      ;; make the hash-table offline
+      (make-h-table-offline h-table-obj-1)
       (remhash-shared 1 h-table-obj-1)
       (inspect-h-table (h-table-obj-1)
 	(let ((buffer))
@@ -214,12 +214,9 @@
   (let ((h1 (make-hash-table)))
     (setf (gethash 0 h1) "00")
     (let ((h-table-obj-1 (share-hash-table h1 :this-node addr-1
-					      :other-nodes (list addr-1)
-					      ;; make the hash-table offline
-					      :stop-sync t
-					      :stop-udp-server t
-					      :stop-tcp-server t
-					      :stop-tcp-client t)))
+					      :other-nodes (list addr-1))))
+      ;; make the hash-table offline
+      (make-h-table-offline h-table-obj-1)
       (setf (network-settings-cache-being-processed (second h-table-obj-1)) t) ;; API is now blocked
       (inspect-h-table (h-table-obj-1)
 	(handler-case

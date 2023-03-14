@@ -16,32 +16,26 @@ Explanation of the share-hash-table parameter list:
 3. * htable-entry-size: approximate length of the byte array with an encoded key-value pair.
 4. Cache:
    * cache-length: number of elements in the last-keys-modified list. This list is periodically shared.
-   * share-cache-interval-in-sec: controls how often this list is shared with remote peers.
-   * cache-being-processed: flag, which blocks the API while cache is being sharing. Used for debugging/tuning and can be ignored.
+   * share-cache-interval-in-sec: controls how often this list is shared with remote peers.   
 5. Socket settings:
    * server-buffer-size: buffer size of socket-receive method
    * client-buffer-size: buffer size of socket-send method. NIL = length of transferred data is used
    * max-n-of-tcp-connections, tcp-client-try-reconnect-after, tcp-client-reconnection-attempts: obvious settings
-   * stop-udp-server, stop-tcp-server, stop-tcp-client: used for debugging/tuning and can be ignored. 
 6. * time-to-wait-if-no-data: don't process internal data queue if network activity is low and no data are enqueued.
 7. Hash-table cleaning:
    * remove-obsolete-keys-interval: (time in sec) controls cleaning the hash-table from the keys which were deleted with #'remhash-shared.
                                     It is important to let the obsolete keys be distributed over network and then delete them collectively.
                                     Otherwise the deleted item will be pushed back by the network environment. The bigger the network,
                                     the longer this time interval should be. 
-   * stop-hash-table-cleaning: used for debugging/tuning and can be ignored. 
-8. * stop-sync: used for debugging/tuning and can be ignored. 
 9. * encryption-fns: (list #encryption-function #decryption-function). Encrypts network traffic.
 |#
 (defun share-hash-table (h-table &key this-node other-nodes (message-frame-header "start")
 				   (message-frame-trail "end") (htable-entry-size 100)
 				   (cache-length 1024) (server-buffer-size 2500000)
-				   (client-buffer-size NIL) (stop-sync NIL)
+				   (client-buffer-size NIL)
 				   (time-to-wait-if-no-data 0.1) (max-n-of-tcp-connections 100)
-				   (stop-udp-server NIL) (stop-tcp-server NIL) (stop-tcp-client NIL)
 				   (tcp-client-try-reconnect-after 1) (tcp-client-reconnection-attempts 1000)
 				   (share-cache-interval-in-sec 1) (remove-obsolete-keys-interval 60)
-				   (stop-hash-table-cleaning NIL) (cache-being-processed NIL)
 				   (encryption-fns NIL))			   
   "Nondestructively converts hash-table <key,value> into:
       1. hash-table <key, #(value, death-certificate, timestamp)>
@@ -73,17 +67,19 @@ Explanation of the share-hash-table parameter list:
 		     :trailing-bytes (sb-ext:string-to-octets message-frame-trail :external-format :utf-8)
 		     :server-buffer-size server-buffer-size
 		     :client-buffer-size client-buffer-size					   
-		     :stop-sync stop-sync
+		     :stop-sync NIL
 		     :time-to-wait-if-no-data time-to-wait-if-no-data
-		     :stop-udp-server stop-udp-server
-		     :stop-tcp-server stop-tcp-server
-		     :stop-tcp-client stop-tcp-client
+		     :stop-udp-server NIL
+		     :stop-tcp-server NIL
+		     :stop-tcp-client NIL
 		     :tcp-client-try-reconnect-after tcp-client-try-reconnect-after
 		     :tcp-client-reconnection-attempts tcp-client-reconnection-attempts
 		     :share-cache-interval-in-sec share-cache-interval-in-sec
 		     :remove-obsolete-keys-interval remove-obsolete-keys-interval
-		     :stop-hash-table-cleaning stop-hash-table-cleaning
-		     :cache-being-processed cache-being-processed
+		     :stop-hash-table-cleaning NIL
+		     ;; cache-being-processed: flag, which blocks the API while
+		     ;; cache is being sharing.
+		     :cache-being-processed NIL 
 		     :encryption-fns encryption-fns)))
       (let ((sht (make-shared-hash-table
 		  :table h
