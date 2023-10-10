@@ -50,7 +50,7 @@ Explanation of the share-hash-table parameter list:
             :rehash-size (hash-table-rehash-size h-table)
             :rehash-threshold (hash-table-rehash-threshold h-table)
             :size (hash-table-size h-table))))
-    ;; fill the h-tale with gvalues.
+    ;; fill the h-table with gvalues.
     (maphash #'(lambda (key value)
 		 (progn
 		   (setf (gethash key h)
@@ -63,8 +63,8 @@ Explanation of the share-hash-table parameter list:
 	  (settings (make-network-settings
 		     :htable-entry-size htable-entry-size
 		     :max-n-of-tcp-connections max-n-of-tcp-connections
-		     :header-bytes (sb-ext:string-to-octets message-frame-header :external-format :utf-8)
-		     :trailing-bytes (sb-ext:string-to-octets message-frame-trail :external-format :utf-8)
+		     :header-bytes (string-to-octets message-frame-header :external-format :utf-8)
+		     :trailing-bytes (string-to-octets message-frame-trail :external-format :utf-8)
 		     :server-buffer-size server-buffer-size
 		     :client-buffer-size client-buffer-size					   
 		     :stop-sync NIL

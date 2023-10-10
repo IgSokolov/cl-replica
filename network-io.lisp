@@ -109,10 +109,10 @@
 
 ;; string encoding/decoding
 (defun encode (obj) 
-  (sb-ext:string-to-octets (obj-to-str obj) :external-format :utf-8))
+  (string-to-octets (obj-to-str obj) :external-format :utf-8))
 
 (defun decode (vec)  
-  (str-to-obj (sb-ext:octets-to-string vec :external-format :utf-8)))
+  (str-to-obj (octets-to-string vec :external-format :utf-8)))
 
 (defun parse-buffer (header-bytes header-size trailing-bytes trailing-size buffer)
   "Recursively traverses buffer and tries hard to find message frames separated by

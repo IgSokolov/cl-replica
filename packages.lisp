@@ -15,6 +15,7 @@
 (defpackage :cl-replica.network-io
   (:use :cl)
   (:import-from :cl-replica.vector-clock :init-timestamp)
+  (:import-from :flexi-streams :string-to-octets :octets-to-string)
   (:export
    
    ;; functions
@@ -77,6 +78,7 @@
 
 (defpackage :cl-replica
   (:use :cl :cl-replica.hashtable-ops :cl-replica.vector-clock :cl-replica.network-io)
+  (:import-from :flexi-streams :string-to-octets :octets-to-string)
   (:export
    
    :share-hash-table
