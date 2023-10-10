@@ -15,7 +15,7 @@
 (defpackage :cl-replica.queue
   (:use :cl)
   (:import-from :bordeaux-threads-2
-   :with-lock-held :make-lock :make-thread)
+   :acquire-lock :release-lock :make-lock :make-thread)
   (:export
    :make-queue
    :queue-elements
