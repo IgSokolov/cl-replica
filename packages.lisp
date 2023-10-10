@@ -14,14 +14,18 @@
 
 (defpackage :cl-replica.queue
   (:use :cl)
-  (:import-from :bordeaux-threads-2 :with-lock-held :make-lock)
+  (:import-from :bordeaux-threads-2
+   :with-lock-held :make-lock :make-thread)
   (:export
    :make-queue
+   :queue-elements
+   :queue-front
+   :empty-queue-p
    :dequeue
    :enqueue))
 
 (defpackage :cl-replica.network-io
-  (:use :cl)
+  (:use :cl :cl-replica.queue)
   (:import-from :cl-replica.vector-clock :init-timestamp)
   (:import-from :flexi-streams :string-to-octets :octets-to-string)
   (:export
@@ -54,7 +58,9 @@
    :send-echo))   
 
 (defpackage :cl-replica.hashtable-ops
-  (:use :cl :cl-replica.vector-clock :cl-replica.network-io)
+  (:use :cl
+   :cl-replica.vector-clock
+	:cl-replica.network-io :cl-replica.queue)
   (:export
    
    :make-shared-hash-table
@@ -85,7 +91,7 @@
    :cache-being-shared))
 
 (defpackage :cl-replica
-  (:use :cl :cl-replica.hashtable-ops :cl-replica.vector-clock :cl-replica.network-io)
+  (:use :cl :cl-replica.hashtable-ops :cl-replica.vector-clock :cl-replica.network-io :cl-replica.queue)
   (:import-from :flexi-streams :string-to-octets :octets-to-string)
   (:export
    

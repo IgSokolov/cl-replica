@@ -59,7 +59,7 @@ Explanation of the share-hash-table parameter list:
 	     h-table)
     ;; set environment with settings which affect shared-hash-table
     ;; and which can be changed in run-time; then create shared-hash-table.
-    (let ((server-input-queue (sb-concurrency:make-queue :name 'server-queue :initial-contents NIL))
+    (let ((server-input-queue (make-queue))
 	  (settings (make-network-settings
 		     :htable-entry-size htable-entry-size
 		     :max-n-of-tcp-connections max-n-of-tcp-connections

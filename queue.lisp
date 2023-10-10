@@ -4,18 +4,21 @@
 ;; See Norwig, Waters, Implementing queues in Lisp,
 ;; ACM SIGPLAN Lisp Pointers, October 1991
 
+(defun make-queue% ()
+  (let ((q (list NIL)))
+    (setf (car q) q)))
+
 (defstruct queue
-  (lock (make-lock))
-  (data (let ((q (list NIL)))
-	  (setf (car q) q))))
+  (qlock (make-lock))
+  (data (make-queue%)))
 
 (defmacro with-locked-queue (queue timeout &body body)
   (let ((g-queue (gensym))
 	(g-timeout (gensym)))
     `(let ((,g-queue ,queue)
 	   (,g-timeout ,timeout))
-       (with-slots (lock data) ,g-queue
-	 (with-lock-held (lock :timeout ,g-timeout)
+       (with-slots (qlock data) ,g-queue
+	 (with-lock-held (qlock :timeout ,g-timeout)
 	   (progn ,@body))))))
 		 
 (defun queue-elements (q)
@@ -37,8 +40,7 @@
 	(setf (car data) data))
       (car elements))))
 
-(defun enqueue (q item)
+(defun enqueue (item q)
   (with-locked-queue q 0
     (setf (car data) (setf (cdar data) (list item)))))
-  
-  
+				

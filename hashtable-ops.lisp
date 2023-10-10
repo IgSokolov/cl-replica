@@ -142,7 +142,7 @@
    (lambda ()
      ;; read from server buffer
      (loop until (network-settings-stop-sync settings) do
-       (let ((data (sb-concurrency:dequeue queue)))
+       (let ((data (dequeue queue)))
 	 (if data
 	     (handler-case		 
 		 (destructuring-bind (key value del-p timestamp) data

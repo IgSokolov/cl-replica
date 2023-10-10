@@ -252,7 +252,7 @@
   "Decodes and then resets the internal buffer (acc) of decoder"
   (loop for item in (decode-buffer (decoder-acc decoder) decoder) do
     (when (car item) ;; key = NIL is not allowed and reserved for #'send-echo
-      (sb-concurrency:enqueue item queue)))
+      (enqueue item queue)))
   (setf (decoder-acc decoder) NIL))
   
 (defun handle-connection (connection queue server-buffer-size decoder)
