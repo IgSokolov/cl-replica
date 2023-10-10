@@ -6,6 +6,7 @@
   :depends-on (:bordeaux-threads :flexi-streams :usocket)
   :components ((:file "packages")
 	       (:file "vector-clock" :depends-on ("packages"))
+	       (:file "queue" :depends-on ("packages"))
 	       (:file "network-io" :depends-on ("packages"))
 	       (:file "hashtable-ops" :depends-on ("packages" "vector-clock"))	     
 	       (:file "api" :depends-on ("packages" "hashtable-ops" "vector-clock" "network-io"))))

@@ -12,6 +12,14 @@
    :compare-vector-lengths
    :timestamp<=))
 
+(defpackage :cl-replica.queue
+  (:use :cl)
+  (:import-from :bordeaux-threads-2 :with-lock-held :make-lock)
+  (:export
+   :make-queue
+   :dequeue
+   :enqueue))
+
 (defpackage :cl-replica.network-io
   (:use :cl)
   (:import-from :cl-replica.vector-clock :init-timestamp)
