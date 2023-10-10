@@ -52,12 +52,8 @@
 		,@body)	   
 	   (destroy-shared-htable ,h-table-obj ,wait-after-socket-is-closed))))))
 
-(defun mutex-is-free-p (sht)
-  (not (sb-thread:mutex-value (shared-hash-table-lock sht))))
-
-
 (defun make-h-table-offline (h-table-obj)
-  (cl-replica::dbind-with-mutex (sht settings) h-table-obj
+  (cl-replica::dbind-with-lock (sht settings) h-table-obj
     (cl-replica::stop-all-network-threads settings)))
   
 ;; Network IO tests
@@ -169,7 +165,7 @@
 					      :other-nodes (list addr-1))))
       ;; make the hash-table offline
       (make-h-table-offline h-table-obj-1)
-      ;; try with dbind-with-mutex
+      ;; try with dbind-with-lock
       ;; ensure that the values present
       (assert (string= "00" (gethash-shared 0 h-table-obj-1)))
       (assert (string= "01" (gethash-shared 1 h-table-obj-1)))

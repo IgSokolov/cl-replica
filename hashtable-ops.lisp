@@ -4,7 +4,7 @@
   (declaim (optimize (debug 3))))
 
 (defstruct shared-hash-table
-  (lock (sb-thread:make-mutex))
+  (lock (make-lock))
   this-node
   other-nodes
   number-of-nodes
@@ -96,14 +96,17 @@
 
 (defun clean-shared-hash-table (sht)
   "Deletes all keys which have death-certificates (del-p flag)"
-  (sb-thread:with-mutex ((shared-hash-table-lock sht))
-    (let ((obsolete-keys))
-      (maphash #'(lambda (key value) (when (eq t (aref value 1))
-				       (push key obsolete-keys)))
-	       (shared-hash-table-table sht))
-      (dolist (key obsolete-keys)
-	(remhash key (shared-hash-table-table sht))))))
-
+  (unwind-protect
+       (progn
+	 (acquire-lock (shared-hash-table-lock sht))
+	 (let ((obsolete-keys))
+	   (maphash #'(lambda (key value) (when (eq t (aref value 1))
+					    (push key obsolete-keys)))
+		    (shared-hash-table-table sht))
+	   (dolist (key obsolete-keys)
+	     (remhash key (shared-hash-table-table sht)))))
+    (release-lock (shared-hash-table-lock sht))))
+  
 (defmacro call-fn-in-interruptable-thread (delay stop-flag n-segments fn-with-args)
   "When delay >> 1, (sleep delay) would block the thread for a long time.
    This macro solves that problem by splitting delay into n-segments time intervals
@@ -111,7 +114,7 @@
   (let ((g-counter (gensym)))
     `(let ((,g-counter 0))
        (setf ,stop-flag NIL)
-       (sb-thread:make-thread
+       (make-thread
 	(lambda ()
 	  (loop until ,stop-flag do
 	    (if (> ,g-counter ,n-segments)
@@ -138,7 +141,7 @@
 
 (defun apply-updates-from-other-nodes (sht settings queue)
   (setf (network-settings-stop-sync settings) NIL)
-  (sb-thread:make-thread
+  (make-thread
    (lambda ()
      ;; read from server buffer
      (loop until (network-settings-stop-sync settings) do
@@ -147,8 +150,11 @@
 	     (handler-case		 
 		 (destructuring-bind (key value del-p timestamp) data
 		   (if (typep timestamp 'timestamp)			 
-		       (sb-thread:with-mutex ((shared-hash-table-lock sht))
-			 (newhash-shared-no-lock key value del-p timestamp sht settings NIL)) ;; NIL = add without sync
+		       (unwind-protect
+			    (progn
+			      (acquire-lock (shared-hash-table-lock sht))
+			      (newhash-shared-no-lock key value del-p timestamp sht settings NIL)) ;; NIL = add without sync
+			 (release-lock (shared-hash-table-lock sht)))
 		       (error 'malformed-data :data data :msg "Malformed timestamp")))
 	       (SB-KERNEL::ARG-COUNT-ERROR (c)
 		 (error 'malformed-data :data data :msg c)))		 
@@ -175,7 +181,8 @@
    (list key value death-cert timestamp )]"
   (setf (network-settings-cache-being-processed settings) t)
   (unwind-protect
-       (sb-thread:with-mutex ((shared-hash-table-lock sht))
+       (progn
+	 (acquire-lock (shared-hash-table-lock sht))
 	 ;; update timestamps before sending the list to another node
 	 (mapc #'(lambda (pair) (promote-timestamp (cdr pair) (shared-hash-table-this-node-idx sht)))
 	       (shared-hash-table-last-keys-modified sht))
@@ -188,6 +195,7 @@
 	       (gvalue-dbind (value del-p timestamp) gvalue
 		 (push (list key value del-p timestamp) cache))))		 
 	   cache))
+    (release-lock (shared-hash-table-lock sht))
     (setf (network-settings-cache-being-processed settings) NIL)))
 
 
@@ -197,7 +205,7 @@
   (let ((counter 0)
 	(dt (network-settings-share-cache-interval-in-sec settings)))
   (setf (network-settings-stop-sync settings) NIL)
-  (sb-thread:make-thread
+  (make-thread
    (lambda ()
      (let ((nodes (nshuffle (copy-list (shared-hash-table-clients-socket-pool sht)))))
        (loop until (network-settings-stop-sync settings) do

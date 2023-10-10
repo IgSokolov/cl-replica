@@ -266,7 +266,7 @@
       
 (defun start-udp-server (address port queue settings)
   (setf (network-settings-stop-udp-server settings) NIL)
-  (sb-thread:make-thread
+  (make-thread
    (lambda ()
      (let ((server (make-instance 'sb-bsd-sockets:inet-socket :type :datagram :protocol :udp))
 	   (decoder (init-decoder settings)))
@@ -285,7 +285,7 @@
 
 (defun start-tcp-server (address port queue settings)
   (setf (network-settings-stop-tcp-server settings) NIL)
-  (sb-thread:make-thread
+  (make-thread
    (lambda ()     
      (let ((server (make-instance 'sb-bsd-sockets:inet-socket :type :stream :protocol :tcp))
 	   (decoder (init-decoder settings)))
@@ -307,7 +307,7 @@
 	   (return-from start-tcp-server NIL)))
        (loop until (network-settings-stop-tcp-server settings) do	 
 	 (let ((connection (sb-bsd-sockets:socket-accept server)))
-	   (sb-thread:make-thread
+	   (make-thread
 	    (lambda ()		
 	      (loop until (network-settings-stop-tcp-server settings) do
 		(handle-connection connection queue
@@ -328,7 +328,7 @@
 ;; TCP
 (defun try-connect-until-success (socket address port settings)
   (setf (network-settings-stop-tcp-client settings) NIL)
-  (sb-thread:make-thread
+  (make-thread
    (lambda ()
      (let ((number-of-reconnections 0))
        (loop named main until (network-settings-stop-tcp-client settings) do	 

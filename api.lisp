@@ -109,7 +109,7 @@ possible to use dynamically scoped slots. See the corresponding stackoverflow th
 https://stackoverflow.com/questions/71082880/common-lisp-structures-with-dynamically-scoped-slots/71085062#71085062
 |#
 
-(defmacro dbind-with-mutex (vars h-table-obj &body body)
+(defmacro dbind-with-lock (vars h-table-obj &body body)
   "D-bind variables in vars to h-table-obj structure, acquire the lock,
    do the job in @body and release the lock"
   (destructuring-bind (sht settings) vars
@@ -117,12 +117,15 @@ https://stackoverflow.com/questions/71082880/common-lisp-structures-with-dynamic
        (declare (ignorable ,sht ,settings))
        (if (network-settings-cache-being-processed ,settings)
 	   (error 'cache-being-shared) ;; application must provide error handlers
-	   (sb-thread:with-mutex ((shared-hash-table-lock ,sht))
-	     (progn ,@body))))))
+	   (unwind-protect
+		(progn
+		  (acquire-lock (shared-hash-table-lock ,sht))
+		  (progn ,@body))
+	     (release-lock (shared-hash-table-lock ,sht)))))))
 
 (defun gethash-shared (key h-table-obj &optional default)
   "API for getting value"
-  (dbind-with-mutex (sht settings) h-table-obj
+  (dbind-with-lock (sht settings) h-table-obj
     (multiple-value-bind (value found-p) (gethash-shared-no-lock key sht)
       (if found-p
 	  (values value t)
@@ -130,7 +133,7 @@ https://stackoverflow.com/questions/71082880/common-lisp-structures-with-dynamic
 
 (defun newhash-shared (key h-table-obj new-value)
   "API for setting value"
-  (dbind-with-mutex (sht settings) h-table-obj
+  (dbind-with-lock (sht settings) h-table-obj
     (let ((ts (init-timestamp (shared-hash-table-number-of-nodes sht)))) 
       (newhash-shared-no-lock key new-value NIL ts sht settings))))
 
@@ -138,12 +141,12 @@ https://stackoverflow.com/questions/71082880/common-lisp-structures-with-dynamic
 
 (defun remhash-shared (key h-table-obj)
   "API for deleting key"
-  (dbind-with-mutex (sht settings) h-table-obj
+  (dbind-with-lock (sht settings) h-table-obj
     (remhash-shared-no-lock key sht)))
 
 (defun clrhash-shared (h-table-obj)
   "API for deleting all keys from h-table."
-  (dbind-with-mutex (sht settings) h-table-obj
+  (dbind-with-lock (sht settings) h-table-obj
       (maphash #'(lambda (key value)
 		   (declare (ignore value))
 		   (remhash-shared-no-lock key sht))
@@ -152,7 +155,7 @@ https://stackoverflow.com/questions/71082880/common-lisp-structures-with-dynamic
 
 (defun maphash-shared (fn h-table-obj)
   "API for iteration over key-value pairs"
-  (dbind-with-mutex (sht settings) h-table-obj
+  (dbind-with-lock (sht settings) h-table-obj
     (maphash #'(lambda (key value) (unless (eq t (aref value 1))
 				     (apply fn (list key (aref value 0)))))
 	       (shared-hash-table-table sht))))
