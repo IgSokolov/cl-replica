@@ -25,7 +25,7 @@
    :enqueue))
 
 (defpackage :cl-replica.network-io
-  (:use :cl :cl-replica.queue)
+  (:use :cl :cl-replica.queue :fsocket)
   (:import-from :cl-replica.vector-clock :init-timestamp)
   (:import-from :flexi-streams :string-to-octets :octets-to-string)
   (:import-from :bordeaux-threads-2
@@ -33,12 +33,13 @@
   (:export
    
    ;; functions
+   :parse-network-address
    :stop-communication
    :start-server
-   :connect-to-remote-peer
+   
    :send-update
    :make-network-settings
-   :network-settings-max-n-of-tcp-connections
+
    :network-settings-htable-entry-size
    :network-settings-header-bytes
    :network-settings-trailing-bytes
@@ -46,10 +47,6 @@
    :network-settings-client-buffer-size
    :network-settings-udp-socket
    :network-settings-stop-udp-server
-   :network-settings-stop-tcp-server
-   :network-settings-stop-tcp-client
-   :network-settings-tcp-client-try-reconnect-after
-   :network-settings-tcp-client-reconnection-attempts
    :network-settings-stop-sync
    :network-settings-time-to-wait-if-no-data
    :network-settings-encryption-fns

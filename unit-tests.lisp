@@ -30,18 +30,13 @@
 		       ;; network-settings slots
 		       (entry-size (network-settings-htable-entry-size ,settings))
 		       (header-bytes (network-settings-header-bytes ,settings))
-		       (trailing-bytes (network-settings-trailing-bytes ,settings))
-		       (max-n-of-tcp-connections (network-settings-max-n-of-tcp-connections ,settings))
+		       (trailing-bytes (network-settings-trailing-bytes ,settings))		       
 		       (server-buffer-size (network-settings-server-buffer-size ,settings))
 		       (client-buffer-size (network-settings-client-buffer-size ,settings))
 		       (udp-socket (network-settings-udp-socket ,settings))
 		       (stop-sync (network-settings-stop-sync ,settings))
 		       (time-to-wait (network-settings-time-to-wait-if-no-data ,settings))
-		       (stop-udp-server (network-settings-stop-udp-server ,settings))
-		       (stop-tcp-server (network-settings-stop-tcp-server ,settings))
-		       (stop-tcp-client (network-settings-stop-tcp-client ,settings))
-		       (recon-after (network-settings-tcp-client-try-reconnect-after ,settings))
-		       (recon-attempts (network-settings-tcp-client-reconnection-attempts ,settings))
+		       (stop-udp-server (network-settings-stop-udp-server ,settings))		       
 		       (share-cache-dt (network-settings-share-cache-interval-in-sec ,settings))
 		       (cache-being-shared (network-settings-cache-being-processed ,settings))
 		       (clean-db-dt (network-settings-remove-obsolete-keys-interval ,settings))
@@ -248,9 +243,7 @@
 						:cache-length 10
 						:htable-entry-size 100
 						:server-buffer-size (get-random-buffer-size min max)
-						:client-buffer-size NIL ;; strongly recommended
-						:tcp-client-reconnection-attempts 10
-						:tcp-client-try-reconnect-after 1
+						:client-buffer-size NIL ;; strongly recommended						
 						:share-cache-interval-in-sec 60
 						:remove-obsolete-keys-interval 60))					      								 
 	    (h-table-obj-2 (share-hash-table h2 :this-node addr-2
@@ -258,9 +251,7 @@
 						:htable-entry-size 100
 						:cache-length 10
 						:server-buffer-size (get-random-buffer-size min max)
-						:client-buffer-size NIL
-						:tcp-client-reconnection-attempts 10
-						:tcp-client-try-reconnect-after 1
+						:client-buffer-size NIL						
 						:share-cache-interval-in-sec 60
 						:remove-obsolete-keys-interval 60)))	
 	(loop for key from 0 below n do
@@ -437,4 +428,4 @@
 
 (defun run-unit-tests ()
   (run-vector-clock-tests)
-  (run-networking-tests  "tcp://127.0.0.1:5501" "tcp://127.0.0.1:5502" "tcp://127.0.0.1:5503" "tcp://127.0.0.1:5504"))
+  (run-networking-tests  "udp://127.0.0.1:5501" "udp://127.0.0.1:5502" "udp://127.0.0.1:5503" "udp://127.0.0.1:5504"))

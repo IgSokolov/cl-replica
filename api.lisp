@@ -7,9 +7,9 @@
 #|
 Explanation of the share-hash-table parameter list:
 1. Address of hash-table replicas
-   * this-node: socket-type, ip and port of the local machine (ex.: "tcp://127.0.0.1:5000")
-   * other-nodes: list of remote peers (ex.: (list "tcp://192.168.1.1:5000" "tcp://192.168.1.2:5000")
-2. TCP message boundary markers
+   * this-node: socket-type, ip and port of the local machine (ex.: "udp://127.0.0.1:5000")
+   * other-nodes: list of remote peers (ex.: (list "udp://192.168.1.1:5000" "udp://192.168.1.2:5000")
+2. UDP message boundary markers
    * message-frame-header: header marker
    * message-frame-trail: termination marker
    Their default values are "start" and "end", but you can choose any strings. Better not too short. 
@@ -20,7 +20,6 @@ Explanation of the share-hash-table parameter list:
 5. Socket settings:
    * server-buffer-size: buffer size of socket-receive method
    * client-buffer-size: buffer size of socket-send method. NIL = length of transferred data is used
-   * max-n-of-tcp-connections, tcp-client-try-reconnect-after, tcp-client-reconnection-attempts: obvious settings
 6. * time-to-wait-if-no-data: don't process internal data queue if network activity is low and no data are enqueued.
 7. Hash-table cleaning:
    * remove-obsolete-keys-interval: (time in sec) controls cleaning the hash-table from the keys which were deleted with #'remhash-shared.
@@ -33,8 +32,8 @@ Explanation of the share-hash-table parameter list:
 				   (message-frame-trail "end") (htable-entry-size 100)
 				   (cache-length 1024) (server-buffer-size 2500000)
 				   (client-buffer-size NIL)
-				   (time-to-wait-if-no-data 0.1) (max-n-of-tcp-connections 100)
-				   (tcp-client-try-reconnect-after 1) (tcp-client-reconnection-attempts 1000)
+				   (time-to-wait-if-no-data 1000) ;; todo; -in-ms
+				   
 				   (share-cache-interval-in-sec 1) (remove-obsolete-keys-interval 60)
 				   (encryption-fns NIL))			   
   "Nondestructively converts hash-table <key,value> into:
@@ -61,19 +60,14 @@ Explanation of the share-hash-table parameter list:
     ;; and which can be changed in run-time; then create shared-hash-table.
     (let ((server-input-queue (make-queue))
 	  (settings (make-network-settings
-		     :htable-entry-size htable-entry-size
-		     :max-n-of-tcp-connections max-n-of-tcp-connections
+		     :htable-entry-size htable-entry-size		     
 		     :header-bytes (string-to-octets message-frame-header :external-format :utf-8)
 		     :trailing-bytes (string-to-octets message-frame-trail :external-format :utf-8)
 		     :server-buffer-size server-buffer-size
 		     :client-buffer-size client-buffer-size					   
 		     :stop-sync NIL
 		     :time-to-wait-if-no-data time-to-wait-if-no-data
-		     :stop-udp-server NIL
-		     :stop-tcp-server NIL
-		     :stop-tcp-client NIL
-		     :tcp-client-try-reconnect-after tcp-client-try-reconnect-after
-		     :tcp-client-reconnection-attempts tcp-client-reconnection-attempts
+		     :stop-udp-server NIL		     
 		     :share-cache-interval-in-sec share-cache-interval-in-sec
 		     :remove-obsolete-keys-interval remove-obsolete-keys-interval
 		     :stop-hash-table-cleaning NIL
@@ -86,9 +80,9 @@ Explanation of the share-hash-table parameter list:
 		  :this-node this-node
 		  :other-nodes other-nodes
 		  :number-of-nodes number-of-nodes
-		  :clients-socket-pool (mapcar #'(lambda (node) (connect-to-remote-peer node settings)) other-nodes)
+		  :clients-socket-pool (mapcar #'parse-network-address other-nodes)
 		  :server-input-queue server-input-queue
-		  :server-socket (start-server this-node server-input-queue settings)		
+		  :server-socket (start-server this-node server-input-queue settings)	
 		  :this-node-idx this-node-idx
 		  :last-keys-modified-max-length cache-length
 		  :last-keys-modified last-keys-modified)))
@@ -162,8 +156,7 @@ https://stackoverflow.com/questions/71082880/common-lisp-structures-with-dynamic
 
 (defun stop-all-network-threads (settings)
   "API for disabling inter-nodes communication"
-    (stop-communication :tcp settings :all)
-    (stop-communication :udp settings))
+    (stop-communication settings))
     
 (defun start-all-network-threads (h-table-obj)
   "API for activating inter nodes communication"
@@ -171,11 +164,9 @@ https://stackoverflow.com/questions/71082880/common-lisp-structures-with-dynamic
     ;; set network flags
     (setf (network-settings-stop-sync settings) NIL)
     (setf (network-settings-stop-udp-server settings) NIL)
-    (setf (network-settings-stop-tcp-server settings) NIL)
-    (setf (network-settings-stop-tcp-client settings) NIL)
     ;; restart network threads
     (setf (shared-hash-table-clients-socket-pool sht)
-	  (mapcar #'(lambda (node) (connect-to-remote-peer node settings)) (shared-hash-table-other-nodes sht)))
+	  (mapcar #'parse-network-address (shared-hash-table-other-nodes sht)))
     (setf (shared-hash-table-server-socket sht) (start-server (shared-hash-table-this-node sht) (shared-hash-table-server-input-queue sht) settings))
     (apply-updates-from-other-nodes sht settings (shared-hash-table-server-input-queue sht))
     (share-cache-periodically sht settings)))
@@ -188,7 +179,6 @@ https://stackoverflow.com/questions/71082880/common-lisp-structures-with-dynamic
       (setf (shared-hash-table-destroyed-p sht) t)
       (setf (network-settings-stop-hash-table-cleaning settings) t) ;; stop db cleaning
       (stop-all-network-threads settings)
-      (send-echo (shared-hash-table-this-node sht) settings) ;; let tcp-server close the socket
       (sleep wait-after-socket-is-closed) ;; let data in queue be added to hash-table
       (setf (network-settings-stop-sync settings) t) ;; stop processing internal queue
       (shared-hash-table-table sht)))) ;; return normal hash-table
