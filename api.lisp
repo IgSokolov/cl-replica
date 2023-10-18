@@ -30,10 +30,9 @@ Explanation of the share-hash-table parameter list:
 |#
 (defun share-hash-table (h-table &key this-node other-nodes (message-frame-header "start")
 				   (message-frame-trail "end") (htable-entry-size 100)
-				   (cache-length 1024) (server-buffer-size 2500000)
+				   (cache-length 1024) (server-buffer-size 128)
 				   (client-buffer-size NIL)
 				   (time-to-wait-if-no-data 1000) ;; todo; -in-ms
-				   
 				   (share-cache-interval-in-sec 1) (remove-obsolete-keys-interval 60)
 				   (encryption-fns NIL))			   
   "Nondestructively converts hash-table <key,value> into:

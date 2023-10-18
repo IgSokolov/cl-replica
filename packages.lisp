@@ -25,7 +25,7 @@
    :enqueue))
 
 (defpackage :cl-replica.network-io
-  (:use :cl :cl-replica.queue :fsocket)
+  (:use :cl :cl-replica.queue :usocket)
   (:import-from :cl-replica.vector-clock :init-timestamp)
   (:import-from :flexi-streams :string-to-octets :octets-to-string)
   (:import-from :bordeaux-threads-2

@@ -43,25 +43,25 @@
   (values (intern (string-upcase str) "KEYWORD")))
 
 (defun parse-network-address (addr)
-  "Parses udp://192.168.1.1:5550 to (values #(192 168 1 1) 5550)"
-  (flet ((delimiterp (c) (or (char= c #\/) (char= c #\.) (char= c #\:))))        
+  "Parses 192.168.1.1:5550 to (values '192.168.1.12' 5550)"
+  (flet ((delimiterp (c) (char= c #\:)))
     (let ((addr-as-list (split-string-by-delimiter addr #'delimiterp)))
       (restart-case
 	  (progn
 	    (unless
-		(= 6 (list-length addr-as-list))	   
+		(= 2 (list-length addr-as-list))	   
 	      (error 'network-address-parse-error :address addr))
-	    (let ((ip-str (subseq addr-as-list 1 5))
+	    (let ((ip-str (car addr-as-list))
 		  (port-str (car (last addr-as-list))))
 	      (handler-case
-		  (cons (make-array 4 :initial-contents (mapcar #'parse-integer ip-str))
+		  (cons ip-str
 			(parse-integer port-str))
 		(SB-INT:SIMPLE-PARSE-ERROR (c)	    
 		  (error 'network-address-parse-error :error-msg c :address addr))	    
 		(TYPE-ERROR (c)
 		  (error 'network-address-parse-error :error-msg c :address addr)))))
 	(choose-another-address (new-address)
-	  :report "Please choose another address (ex. udp://127.0.0.1:5550)"
+	  :report "Please choose another address (ex. 127.0.0.1:5550)"
 	  :interactive (lambda ()
 			 (format t "Enter a new address: ")
 			 (list (read)))
@@ -253,28 +253,25 @@
    (lambda ()
      (setf (network-settings-stop-udp-server settings) NIL)
      (let ((decoder (init-decoder settings))
-	   (fd (open-socket :type :datagram))
+	   (fd (socket-connect nil nil
+					:protocol :datagram
+					:element-type '(unsigned-byte 8)
+					:local-host "127.0.0.1"
+					:local-port port))
 	   (buffer (make-array (network-settings-server-buffer-size settings) :element-type '(unsigned-byte 8))))
-     (unwind-protect
-	  (with-poll (pc)
-	    (setf (socket-option fd :socket :reuseaddr) t)
-	    (socket-bind fd (make-sockaddr-in :addr #(127 0 0 1) :port port))
-	    (setf (network-settings-udp-socket settings) fd)
-	    (poll-register pc (make-instance 'pollfd
-					     :fd fd
-					     :events (poll-events :pollin)))
-	    (loop until (network-settings-stop-udp-server settings) do
-	      (when (poll pc :timeout (network-settings-time-to-wait-if-no-data settings)))		
-		;; Accumulate buffer content until critical mass is reached. Then decode it.
-		(handler-case
-		    (multiple-value-bind (length peer-addr) (socket-recvfrom fd buffer)
-		      (declare (ignore peer-addr))      
-		      (setq buffer (subseq buffer 0 length)) ;; remove trailing zeros      
-		      (setf (decoder-acc decoder) (concatenate '(vector (unsigned-byte 8)) (decoder-acc decoder) buffer))      
-		      (when (<= (decoder-acc-min-size decoder) (length (decoder-acc decoder)))
-			(checkout-decoder queue decoder)))
-		  (FSOCKET::POSIX-ERROR NIL))))
-       (close-socket fd))))))
+       (unwind-protect
+	    (progn	      	    
+	      (loop until (network-settings-stop-udp-server settings) do	      
+		;; Accumulate buffer content until critical mass is reached. Then decode it.	
+		(multiple-value-bind (buffer size client peer-addr) (socket-receive fd buffer nil)
+		  (declare (ignore peer-addr client))
+		  (format t "receive: = ~A~%" buffer)
+		  (setq buffer (subseq buffer 0 size)) ;; remove trailing zeros		  
+		  (setf (decoder-acc decoder) (concatenate '(vector (unsigned-byte 8)) (decoder-acc decoder) buffer))
+		  (when (<= (decoder-acc-min-size decoder) (length (decoder-acc decoder))) ;; todo: increment length, dont comoute it
+		    (checkout-decoder queue decoder))))
+	      (checkout-decoder queue decoder))
+	 (socket-close fd))))))
 
 (defun start-server (addr queue settings)
   (destructuring-bind (address . port) (parse-network-address addr)
@@ -289,8 +286,7 @@
 (defun send-update (key value del-p timestamp node settings)
   "Send gvalue data to another node"
   (destructuring-bind (address . port) node
-    (let ((data (encode (list key value del-p timestamp))) ;; send as string
-	  (sock-addr (make-sockaddr-in :addr address :port port)))
+    (let ((data (encode (list key value del-p timestamp)))) ;; send as string	  
       ;; encrypt if necessary
       (setq data (encrypt data (first (network-settings-encryption-fns settings))))    
       ;; build message frame
@@ -309,4 +305,11 @@
 	  (loop for data-frame in data-frames do
 	    (ensure-no-msg-makers data-frame header-bytes trailing-bytes 'send-update))))
       ;; send them
-      (socket-sendto (network-settings-udp-socket settings) data sock-addr))))
+      (let ((fd (socket-connect address port ;; todo: dont connect every time
+				:timeout (network-settings-time-to-wait-if-no-data settings)
+				:protocol :datagram
+				:element-type '(unsigned-byte 8))))
+	;;(format t "sending..~a~%" data)      
+	(socket-send fd
+		     (concatenate '(vector (unsigned-byte 8)) data)
+		     nil)))))
