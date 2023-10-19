@@ -243,9 +243,10 @@
 
 (defun checkout-decoder (queue decoder)
   "Decodes and then resets the internal buffer (acc) of decoder"
-  (loop for item in (decode-buffer (decoder-acc decoder) decoder) do
-    (when (car item) ;; key = NIL is not allowed and reserved for #'send-echo
+  (loop for item in (decode-buffer (decoder-acc decoder) decoder) do    
+    (when (car item) ;; key = NIL is not allowed and reserved for #'send-echo      
       (enqueue item queue)))
+  (format t "queue el = ~a~%" (queue-elements queue))
   (setf (decoder-acc decoder) NIL))
 
 (defun start-udp-server (port queue settings &optional (try-next-port-on-error NIL) port-max)
@@ -256,6 +257,7 @@
 		(when (< port port-max)
 		  (handler-case
 		      (socket-connect nil nil
+				      :timeout (network-settings time-to-wait-if-no-data)
 				      :protocol :datagram
 				      :element-type '(unsigned-byte 8)
 				      :local-host "127.0.0.1"
@@ -269,12 +271,12 @@
 	   (fd (if try-next-port-on-error
 		   (rec-connect)
 		   (socket-connect nil nil
-					:protocol :datagram
-					:element-type '(unsigned-byte 8)
-					:local-host "127.0.0.1"
-					:local-port port)))
-	   (buffer (make-array (network-settings-server-buffer-size settings) :element-type '(unsigned-byte 8))))
-       (format t "fd = ~a~%" fd)
+				   :timeout (network-settings time-to-wait-if-no-data)
+				   :protocol :datagram
+				   :element-type '(unsigned-byte 8)
+				   :local-host "127.0.0.1"
+				   :local-port port)))
+	   (buffer (make-array (network-settings-server-buffer-size settings) :element-type '(unsigned-byte 8))))       
        (unwind-protect
 	    (progn	      	    
 	      (loop until (network-settings-stop-udp-server settings) do	      
