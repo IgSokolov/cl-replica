@@ -248,17 +248,33 @@
       (enqueue item queue)))
   (setf (decoder-acc decoder) NIL))
 
-(defun start-udp-server (port queue settings)
+(defun start-udp-server (port queue settings &optional (try-next-port-on-error NIL) port-max)
   (make-thread
    (lambda ()
      (setf (network-settings-stop-udp-server settings) NIL)
+     (labels ((rec-connect ()		
+		(when (< port port-max)
+		  (handler-case
+		      (socket-connect nil nil
+				      :protocol :datagram
+				      :element-type '(unsigned-byte 8)
+				      :local-host "127.0.0.1"
+				      :local-port port)
+		    (error (c)
+		      (format t "Error (socket-connect): ~a~%" c)
+		      (format t "Try to bind on port: ~a~%" port)
+		      (incf port)
+		      (rec-connect))))))
      (let ((decoder (init-decoder settings))
-	   (fd (socket-connect nil nil
+	   (fd (if try-next-port-on-error
+		   (rec-connect)
+		   (socket-connect nil nil
 					:protocol :datagram
 					:element-type '(unsigned-byte 8)
 					:local-host "127.0.0.1"
-					:local-port port))
+					:local-port port)))
 	   (buffer (make-array (network-settings-server-buffer-size settings) :element-type '(unsigned-byte 8))))
+       (format t "fd = ~a~%" fd)
        (unwind-protect
 	    (progn	      	    
 	      (loop until (network-settings-stop-udp-server settings) do	      
@@ -271,12 +287,12 @@
 		  (when (<= (decoder-acc-min-size decoder) (length (decoder-acc decoder))) ;; todo: increment length, dont comoute it
 		    (checkout-decoder queue decoder))))
 	      (checkout-decoder queue decoder))
-	 (socket-close fd))))))
+	 (socket-close fd)))))))
 
 (defun start-server (addr queue settings)
   (destructuring-bind (address . port) (parse-network-address addr)
     (declare (ignore address))
-    (start-udp-server port queue settings)))
+    (start-udp-server port queue settings t (+ 10 port))))
     
 ;; remote peer side
 
