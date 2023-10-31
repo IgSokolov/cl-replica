@@ -11,10 +11,10 @@
   trailing-bytes           ;; end of message frame
   server-buffer-size
   client-buffer-size       ;; NIL = length of buffer is used  
-  udp-socket
   stop-sync                ;; stop inter-nodes communication
   time-to-wait-if-no-data  ;; pause processing internal buffer if no data received
-  stop-udp-server          ;; stop     
+  stop-udp-server          ;; stop
+  server-input-socket       ;; input fd  
   share-cache-interval-in-sec       ;; share cache with random node
   remove-obsolete-keys-interval     ;; remove dead key-value pairs form hash-table
   stop-hash-table-cleaning      ;; stops removing obsolete keys in hash-table
@@ -56,7 +56,7 @@
 	      (handler-case
 		  (cons ip-str
 			(parse-integer port-str))
-		(SB-INT:SIMPLE-PARSE-ERROR (c)	    
+		(SB-INT:SIMPLE-PARSE-ERROR (c)	;; todo not portable!
 		  (error 'network-address-parse-error :error-msg c :address addr))	    
 		(TYPE-ERROR (c)
 		  (error 'network-address-parse-error :error-msg c :address addr)))))
@@ -84,7 +84,7 @@
     (let ((*read-eval* NIL)) ;; evaluating arbitrary Lisp code is dangerous
       (handler-case
 	  (read-from-string str)
-	(SB-INT:SIMPLE-READER-ERROR (c)
+	(SB-INT:SIMPLE-READER-ERROR (c) ;; todo
 	  (error 'cannot-build-Lisp-object-from-string :error-msg c :data str))
 	(END-OF-FILE (c)
 	  (error 'cannot-build-Lisp-object-from-string :error-msg c :data str))))))
@@ -249,53 +249,47 @@
   (format t "queue el = ~a~%" (queue-elements queue))
   (setf (decoder-acc decoder) NIL))
 
-(defun start-udp-server (port queue settings &optional (try-next-port-on-error NIL) port-max)
+(defun start-udp-server-input (port queue settings)
   (make-thread
    (lambda ()
      (setf (network-settings-stop-udp-server settings) NIL)
-     (labels ((rec-connect ()		
-		(when (< port port-max)
-		  (handler-case
-		      (socket-connect nil nil
-				      :timeout (network-settings time-to-wait-if-no-data)
-				      :protocol :datagram
-				      :element-type '(unsigned-byte 8)
-				      :local-host "127.0.0.1"
-				      :local-port port)
-		    (error (c)
-		      (format t "Error (socket-connect): ~a~%" c)
-		      (format t "Try to bind on port: ~a~%" port)
-		      (incf port)
-		      (rec-connect))))))
-     (let ((decoder (init-decoder settings))
-	   (fd (if try-next-port-on-error
-		   (rec-connect)
-		   (socket-connect nil nil
-				   :timeout (network-settings time-to-wait-if-no-data)
-				   :protocol :datagram
-				   :element-type '(unsigned-byte 8)
-				   :local-host "127.0.0.1"
-				   :local-port port)))
-	   (buffer (make-array (network-settings-server-buffer-size settings) :element-type '(unsigned-byte 8))))       
-       (unwind-protect
-	    (progn	      	    
-	      (loop until (network-settings-stop-udp-server settings) do	      
-		;; Accumulate buffer content until critical mass is reached. Then decode it.	
-		(multiple-value-bind (buffer size client peer-addr) (socket-receive fd buffer nil)
-		  (declare (ignore peer-addr client))
-		  (format t "receive: = ~A~%" buffer)
-		  (setq buffer (subseq buffer 0 size)) ;; remove trailing zeros		  
-		  (setf (decoder-acc decoder) (concatenate '(vector (unsigned-byte 8)) (decoder-acc decoder) buffer))
-		  (when (<= (decoder-acc-min-size decoder) (length (decoder-acc decoder))) ;; todo: increment length, dont comoute it
-		    (checkout-decoder queue decoder))))
-	      (checkout-decoder queue decoder))
-	 (socket-close fd)))))))
+     (let ((decoder (init-decoder settings))	   
+	   (buffer (make-array (network-settings-server-buffer-size settings) :element-type '(unsigned-byte 8))))
+       (with-connected-socket (fd (socket-connect nil nil
+						  :timeout (network-settings-time-to-wait-if-no-data settings)
+						  :protocol :datagram
+						  :element-type '(unsigned-byte 8)
+						  :local-host "127.0.0.1"
+						  :local-port port))
+			       (setf (network-settings-server-input-socket settings) fd)
+			       (loop until (network-settings-stop-udp-server settings) do	      
+				 ;; Accumulate buffer content until critical mass is reached. Then decode it.	
+				 (multiple-value-bind (buffer size client peer-addr) (socket-receive fd buffer nil)
+				   (declare (ignore peer-addr client))
+				   (format t "receive: = ~A~%" buffer)
+				   (setq buffer (subseq buffer 0 size)) ;; remove trailing zeros		  
+				   (setf (decoder-acc decoder) (concatenate '(vector (unsigned-byte 8)) (decoder-acc decoder) buffer))
+				   (when (<= (decoder-acc-min-size decoder) (length (decoder-acc decoder))) ;; todo: increment length, dont comoute it
+				     (checkout-decoder queue decoder))))
+			       ;; on loop exit
+			       (checkout-decoder queue decoder))))))
 
+;; (defun start-udp-server-output (address port settings)
+;;   (with-connected-socket (fd (socket-connect address port
+;; 					     :timeout (network-settings-time-to-wait-if-no-data settings)
+;; 					     :protocol :datagram
+;; 			X1		     :element-type '(unsigned-byte 8)))
+;;     (setf (network-settings-server-output-socket settings) fd)
+;;     (loop until (network-settings-stop-udp-server settings) ;; prevents socket from being closed
+;; 	  do (sleep 1))))
+	 		  
 (defun start-server (addr queue settings)
   (destructuring-bind (address . port) (parse-network-address addr)
     (declare (ignore address))
-    (start-udp-server port queue settings t (+ 10 port))))
-    
+    (start-udp-server-input port queue settings)
+    ;;(start-udp-server-output address port settings)
+    ))
+
 ;; remote peer side
 
 (defun stop-communication (settings)
@@ -322,12 +316,15 @@
 	  (declare (ignore buffer-head buffer-trail))
 	  (loop for data-frame in data-frames do
 	    (ensure-no-msg-makers data-frame header-bytes trailing-bytes 'send-update))))
-      ;; send them
-      (let ((fd (socket-connect address port ;; todo: dont connect every time
-				:timeout (network-settings-time-to-wait-if-no-data settings)
-				:protocol :datagram
-				:element-type '(unsigned-byte 8))))
+      ;; send them      
+      ;;(format t "sending..~a~%" data)      
+      (with-connected-socket (fd (socket-connect address port ;; todo: dont connect every time ?
+						 :timeout (network-settings-time-to-wait-if-no-data settings)
+						 :protocol :datagram
+						 :element-type '(unsigned-byte 8)))
 	;;(format t "sending..~a~%" data)      
 	(socket-send fd
 		     (concatenate '(vector (unsigned-byte 8)) data)
 		     nil)))))
+	 
+  

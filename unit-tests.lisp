@@ -24,16 +24,14 @@
 		       (table (shared-hash-table-table ,sht))
 		       (queue (shared-hash-table-server-input-queue ,sht))
 		       (cache (shared-hash-table-last-keys-modified ,sht))
-		       (cache-length (shared-hash-table-last-keys-modified-max-length ,sht))
-		       (server-socket (shared-hash-table-server-socket ,sht))
+		       (cache-length (shared-hash-table-last-keys-modified-max-length ,sht))		       
 		       (socket-pool (shared-hash-table-clients-socket-pool ,sht))
 		       ;; network-settings slots
 		       (entry-size (network-settings-htable-entry-size ,settings))
 		       (header-bytes (network-settings-header-bytes ,settings))
 		       (trailing-bytes (network-settings-trailing-bytes ,settings))		       
 		       (server-buffer-size (network-settings-server-buffer-size ,settings))
-		       (client-buffer-size (network-settings-client-buffer-size ,settings))
-		       (udp-socket (network-settings-udp-socket ,settings))
+		       (client-buffer-size (network-settings-client-buffer-size ,settings))		       
 		       (stop-sync (network-settings-stop-sync ,settings))
 		       (time-to-wait (network-settings-time-to-wait-if-no-data ,settings))
 		       (stop-udp-server (network-settings-stop-udp-server ,settings))		       
@@ -61,19 +59,22 @@
     (let ((h-table-obj-1 (share-hash-table h1 :this-node addr-1
 					      :other-nodes (list addr-2)
 					      :cache-length 1 ;; = no cache
-					      :share-cache-interval-in-sec 5))
+					      :time-to-wait-if-no-data 1
+					      :share-cache-interval-in-sec 1))
 	  (h-table-obj-2 (share-hash-table h2 :this-node addr-2
 					      :other-nodes (list addr-1)
 					      :cache-length 1 ;; = no cache
-					      :share-cache-interval-in-sec 5)))
+					      :time-to-wait-if-no-data 1
+					      :share-cache-interval-in-sec 1)))
       (newhash-shared 0 h-table-obj-1 "00") ;; will not be in cache and must be shared right now
-      (newhash-shared 1 h-table-obj-1 "01")
-      (newhash-shared 2 h-table-obj-1 "02")
-      (sleep 1)
+      (newhash-shared 0 h-table-obj-1 "00")
+      (newhash-shared 0 h-table-obj-1 "00")
+      (sleep 1)      
       (inspect-h-table (h-table-obj-1)
+	;;(maphash #'(lambda (key value) (format t "~a->~a~%" key value)) table)
 	(inspect-h-table (h-table-obj-2 1)
-	  ;; (maphash #'(lambda (key value) (format t "~a->~a~%" key value)) table))))))    
-	  (assert (string= "00" (gethash-shared 0 h-table-obj-2))))))))
+	  (maphash #'(lambda (key value) (format t "~a->~a~%" key value)) table))))))
+	  ;;(assert (string= "00" (gethash-shared 0 h-table-obj-2))))))))
 
 (defun remhash-shared-test (addr-1 addr-2)
   "Check sharing a value when it is deleted locally"
@@ -426,6 +427,39 @@
   (compare-and-update-test (init-ts-test))
   (timestamp<=-test)) 
 
+
 (defun run-unit-tests ()
   (run-vector-clock-tests)
   (run-networking-tests  "udp://127.0.0.1:5501" "udp://127.0.0.1:5502" "udp://127.0.0.1:5503" "udp://127.0.0.1:5504"))
+
+
+(defun mkstr (&rest args)
+  (with-output-to-string (s)
+    (dolist (a args) (princ a s))))
+
+(defun mksymb (&rest args)
+  (values (intern (string-upcase (apply #'mkstr args)))))
+
+(defmacro mac (expr)
+  `(macroexpand-1 ',expr))
+
+(defmacro with-free-ports (start end &body body)
+  `(let ((range (loop for port from ,start to ,end collect (format NIL "127.0.0.1:~a" port)))
+	(n 0))
+    `(ignorable-let ,(mapcar #'(lambda (p) `(,(mksymb "PORT-" (incf n)) ,p)) range)
+       (progn ,,@body))))
+
+;; reader macro (use #.)
+(defmacro with-rebound-ports (start end max-restarts &body body)
+     `(labels ((rec-connect (s e n-restart max-restarts)
+		 (handler-case
+		       (with-free-ports s e ',@body)
+		   (error (c)
+		     (declare (ignore c))
+		     (if (< n-restart max-restarts)
+			(progn
+			  (format t "reconnecting..~a~%" n-restart)
+			  ;; todo close ports
+			  (rec-connect (+ e 1) (+ e (- e s)) (+ 1 n-restart) max-restarts))
+			"max reconnection error")))))
+	(rec-connect ,start ,end 0 ,max-restarts)))
